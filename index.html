@@ -118,20 +118,28 @@
 
     // Populate equipment when machine typed
     document.getElementById('machineInput').addEventListener("input", () => {
-      const machineVal = document.getElementById('machineInput').value.toLowerCase();
-      const equipmentList = document.getElementById('equipmentList');
-      equipmentList.innerHTML = "";
-      const equipments = data
-        .filter(row => row["MACHINE NAME"].toLowerCase().includes(machineVal))
-        .map(row => row["EQUIPMENT NAME"]);
-      [...new Set(equipments)].forEach(eq => {
-        if (eq) {
-          const option = document.createElement("option");
-          option.value = eq;
-          equipmentList.appendChild(option);
-        }
-      });
-    });
+  const machineVal = document.getElementById('machineInput').value.toLowerCase();
+  const equipmentList = document.getElementById('equipmentList');
+  equipmentList.innerHTML = "";
+
+  if (!machineVal.trim()) {
+    // If input is empty, do not show any equipment
+    return;
+  }
+
+  const equipments = data
+    .filter(row => row["MACHINE NAME"].toLowerCase().includes(machineVal))
+    .map(row => row["EQUIPMENT NAME"]);
+
+  [...new Set(equipments)].forEach(eq => {
+    if (eq) {
+      const option = document.createElement("option");
+      option.value = eq;
+      equipmentList.appendChild(option);
+    }
+  });
+});
+
 
     // Search item code
     function findItemCode() {
