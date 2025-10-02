@@ -6,20 +6,19 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f4f6f9;
+      background: #ffff;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 40px;
     }
 
-    /* h1 { color: #0078d7;
-        background-color: #ccc;
-        margin-top: 2px;
-        width: ;
-
-    } */
-
+    header {
+      color: #0078d7;
+      margin-right: 70%;
+      margin-top: 0.001%;
+      margin-bottom: 5%;
+    }
 
     h2 { margin-bottom: 20px; }
     .container {
@@ -29,6 +28,7 @@
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
       max-width: 600px;
       width: 100%;
+      position: relative;
     }
     label {
       font-weight: bold;
@@ -42,6 +42,25 @@
       border-radius: 8px;
       border: 1px solid #ccc;
       font-size: 15px;
+    }
+    .dropdown {
+      position: absolute;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      max-height: 150px;
+      overflow-y: auto;
+      width: 70%;
+      z-index: 1000;
+      display: none;
+    }
+    .dropdown div {
+      padding: 8px;
+      cursor: pointer;
+    }
+    .dropdown div:hover {
+      background: #0078d7;
+      color: white;
     }
     button {
       margin-top: 20px;
@@ -65,19 +84,19 @@
   </style>
 </head>
 <body>
-    <!-- <img src="Jindal saw ltd.jpg", width="300px", height="100px"> -->
+  <header>
+    <img src="Jindal saw ltd.jpg" alt="none" width="400" height="100">
+  </header>
 
-    <h1> <img src="Jindal saw ltd.jpg", width="500", height="100px" ></h1>
-    
   <h2>Item Code Finder</h2>
   <div class="container">
     <label for="machineInput">Machine Name:</label>
-    <input list="machineList" type="text" id="machineInput" placeholder="Enter machine">
-    <datalist id="machineList"></datalist>
+    <input type="text" id="machineInput" placeholder="Enter machine">
+    <div id="machineDropdown" class="dropdown"></div>
 
     <label for="equipmentInput">Equipment Name:</label>
-    <input list="equipmentList" type="text" id="equipmentInput" placeholder="Enter equipment">
-    <datalist id="equipmentList"></datalist>
+    <input type="text" id="equipmentInput" placeholder="Enter equipment">
+    <div id="equipmentDropdown" class="dropdown"></div>
 
     <button onclick="findItemCode()">Find Item Code</button>
     <div id="result" class="result"></div>
@@ -88,81 +107,154 @@
   <script>
     let data = [];
 
-    // 🔹 Load Excel automatically from backend (place ITEM.xlsx in same folder as HTML)
-    fetch("ITEM.xlsx")
+    // Load Excel automatically
+    fetch("ITEMS.xlsx")
       .then(res => res.arrayBuffer())
       .then(ab => {
         const workbook = XLSX.read(ab, { type: "array" });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         data = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
-        populateMachines();
         console.log("✅ Excel loaded successfully!");
       })
-      .catch(err => {
-        console.error("❌ Error loading Excel:", err);
-      });
+      .catch(err => console.error("❌ Error loading Excel:", err));
 
-    // Populate machine names
-    function populateMachines() {
-      const machineList = document.getElementById('machineList');
-      machineList.innerHTML = "";
-      const machines = [...new Set(data.map(row => row["MACHINE NAME"]))];
-      machines.forEach(m => {
-        if (m) {
-          const option = document.createElement("option");
-          option.value = m;
-          machineList.appendChild(option);
-        }
-      });
-    }
-
-    // Populate equipment when machine typed
-    document.getElementById('machineInput').addEventListener("input", () => {
-  const machineVal = document.getElementById('machineInput').value.toLowerCase();
-  const equipmentList = document.getElementById('equipmentList');
-  equipmentList.innerHTML = "";
-
-  if (!machineVal.trim()) {
-    // If input is empty, do not show any equipment
+    // Show dropdown list - changed
+    function showDropdown(inputEl, dropdownEl, items) {
+  dropdownEl.innerHTML = "";
+  if (!items.length) {
+    dropdownEl.style.display = "none";
     return;
   }
+  items.forEach(item => {
+    let div = document.createElement("div");
+    div.textContent = item;
+    div.onclick = () => {
+      inputEl.value = item;
+      dropdownEl.style.display = "none";
 
-  const equipments = data
-    .filter(row => row["MACHINE NAME"].toLowerCase().includes(machineVal))
-    .map(row => row["EQUIPMENT NAME"]);
-
-  [...new Set(equipments)].forEach(eq => {
-    if (eq) {
-      const option = document.createElement("option");
-      option.value = eq;
-      equipmentList.appendChild(option);
-    }
+      // If user picked a machine, clear equipment input & hide equipment dropdown
+      if (inputEl.id === 'machineInput') {
+        const eqIn = document.getElementById('equipmentInput');
+        const eqDrop = document.getElementById('equipmentDropdown');
+        if (eqIn) { eqIn.value = ''; }
+        if (eqDrop) { eqDrop.style.display = 'none'; eqDrop.innerHTML = ''; }
+      }
+    };
+    dropdownEl.appendChild(div);
   });
+  dropdownEl.style.display = "block";
+}
+
+
+    // Machine input suggestions - change with machine handlers 
+const machineInput = document.getElementById("machineInput");
+const machineDropdown = document.getElementById("machineDropdown");
+
+machineInput.addEventListener("click", () => {
+  const machines = [...new Set(data.map(r => r["MACHINE NAME"]))].filter(Boolean);
+  showDropdown(machineInput, machineDropdown, machines);
+  
 });
+
+machineInput.addEventListener("input", () => {
+  const val = machineInput.value.trim().toLowerCase();
+  const machinesAll = [...new Set(data.map(r => r["MACHINE NAME"]))].filter(Boolean);
+  if (!val) {
+    // show full list when input cleared
+    showDropdown(machineInput, machineDropdown, machinesAll);
+    return;
+  }
+  const machines = machinesAll.filter(m => m.toLowerCase().includes(val));
+  showDropdown(machineInput, machineDropdown, machines);
+});
+
+// Equipment input suggestions - change with Equipment handlers
+const equipmentInput = document.getElementById("equipmentInput");
+const equipmentDropdown = document.getElementById("equipmentDropdown");
+
+equipmentInput.addEventListener("click", () => {
+  const machineVal = machineInput.value.trim().toLowerCase();
+  if (!machineVal) {
+    equipmentDropdown.style.display = "none";
+    return;
+  }
+  const equipmentsAll = [...new Set(
+    data
+      .filter(r => r["MACHINE NAME"] && r["MACHINE NAME"].toLowerCase().includes(machineVal))
+      .map(r => r["EQUIPMENT NAME"])
+  )].filter(Boolean);
+  showDropdown(equipmentInput, equipmentDropdown, equipmentsAll);
+});
+
+equipmentInput.addEventListener("input", () => {
+  const machineVal = machineInput.value.trim().toLowerCase();
+  if (!machineVal) {
+    equipmentDropdown.style.display = "none";
+    return;
+  }
+  const val = equipmentInput.value.trim().toLowerCase();
+  const equipmentsAll = [...new Set(
+    data
+      .filter(r => r["MACHINE NAME"] && r["MACHINE NAME"].toLowerCase().includes(machineVal))
+      .map(r => r["EQUIPMENT NAME"])
+  )].filter(Boolean);
+  if (!val) {
+    // show full equipment list for the selected machine when input cleared
+    showDropdown(equipmentInput, equipmentDropdown, equipmentsAll);
+    return;
+  }
+  const equipments = equipmentsAll.filter(eq => eq.toLowerCase().includes(val));
+  showDropdown(equipmentInput, equipmentDropdown, equipments);
+});
+
+// Close dropdowns when clicking outside inputs or dropdowns
+document.addEventListener("click", (e) => {
+  const target = e.target;
+  // if click outside machine input and its dropdown -> hide
+  if (!target.closest('#machineInput') && !target.closest('#machineDropdown')) {
+    document.getElementById('machineDropdown').style.display = 'none';
+  }
+  // if click outside equipment input and its dropdown -> hide
+  if (!target.closest('#equipmentInput') && !target.closest('#equipmentDropdown')) {
+    document.getElementById('equipmentDropdown').style.display = 'none';
+  }
+});
+
 
 
     // Search item code
     function findItemCode() {
-      const machine = document.getElementById('machineInput').value.toLowerCase();
-      const equipment = document.getElementById('equipmentInput').value.toLowerCase();
-      let resultDiv = document.getElementById('result');
+  const machine = document.getElementById('machineInput').value.toLowerCase();
+  const equipment = document.getElementById('equipmentInput').value.toLowerCase();
+  let resultDiv = document.getElementById('result');
 
-      if (!data.length) {
-        resultDiv.innerHTML = "⚠️ Excel file not loaded from backend.";
-        return;
-      }
+  if (!data.length) {
+    resultDiv.innerHTML = "⚠️ Excel file not loaded from backend.";
+    return;
+  }
 
-      let match = data.find(row =>
-        row["MACHINE NAME"].toLowerCase().includes(machine) &&
-        row["EQUIPMENT NAME"].toLowerCase().includes(equipment)
-      );
+  if (!machine.trim()) {
+    resultDiv.innerHTML = "⚠️ Please enter/select a machine name.";
+    return;
+  }
 
-      if (match) {
-        resultDiv.innerHTML = `✅ Item Code: ${match["ITEM CODE"]}`;
-      } else {
-        resultDiv.innerHTML = "❌ No match found. Try different keywords.";
-      }
-    }
+  if (!equipment.trim()) {
+    resultDiv.innerHTML = "⚠️ Please enter/select an equipment name.";
+    return;
+  }
+
+  let match = data.find(row =>
+    row["MACHINE NAME"].toLowerCase().includes(machine) &&
+    row["EQUIPMENT NAME"].toLowerCase().includes(equipment)
+  );
+
+  if (match) {
+    resultDiv.innerHTML = `✅ Item Code: ${match["ITEM CODE"]}`;
+  } else {
+    resultDiv.innerHTML = "❌ No match found. Try different keywords.";
+  }
+}
+
   </script>
 </body>
 </html>
