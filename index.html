@@ -4,6 +4,31 @@
   <meta charset="UTF-8">
   <title>Item Code Finder</title>
   <style>
+    #assemblyBox {
+      position: fixed;
+      top: 100px;
+      right: 40px;
+      width: 250px;
+      background: #f9fafb;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 15px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      display: none;
+    }
+    #assemblyBox h3 {
+      font-size: 16px;
+      font-weight: bold;
+      color: #111827;
+      margin-bottom: 5px;
+    }
+    #assemblyBox p {
+      font-size: 14px;
+      color: #374151;
+      margin: 0;
+      word-break: break-word;
+    }
+    
     body {
       font-family: Arial, sans-serif;
       background: #ffff;
@@ -84,22 +109,28 @@
   </style>
 </head>
 <body>
-  <header>
-    <img src="Jindal saw ltd.jpg" alt="none" width="400" height="100">
+   <header>
+    <img src="Jindal saw ltd.jpg" alt="logo" width="400" height="100">
   </header>
 
   <h2>Item Code Finder</h2>
   <div class="container">
-    <label for="machineInput">Machine Name:</label>
-    <input type="text" id="machineInput" placeholder="Enter machine">
+    <label for="machineInput">Equipment Name:</label>
+    <input type="text" id="machineInput" placeholder="Enter Equipment Name">
     <div id="machineDropdown" class="dropdown"></div>
 
-    <label for="equipmentInput">Equipment Name:</label>
-    <input type="text" id="equipmentInput" placeholder="Enter equipment">
+    <label for="equipmentInput">Material Description:</label>
+    <input type="text" id="equipmentInput" placeholder="Enter Material Description">
     <div id="equipmentDropdown" class="dropdown"></div>
 
     <button onclick="findItemCode()">Find Item Code</button>
     <div id="result" class="result"></div>
+  </div>
+
+  <!-- Assembly Box on the right; only shown when equipment entered -->
+  <div id="assemblyBox">
+    <h3>Assembly:</h3>
+    <p id="assemblyText">Assembly not found</p>
   </div>
 
   <!-- SheetJS -->
@@ -118,143 +149,195 @@
       })
       .catch(err => console.error("❌ Error loading Excel:", err));
 
-    // Show dropdown list - changed
+    // Show dropdown list
     function showDropdown(inputEl, dropdownEl, items) {
-  dropdownEl.innerHTML = "";
-  if (!items.length) {
-    dropdownEl.style.display = "none";
-    return;
-  }
-  items.forEach(item => {
-    let div = document.createElement("div");
-    div.textContent = item;
-    div.onclick = () => {
-      inputEl.value = item;
-      dropdownEl.style.display = "none";
-
-      // If user picked a machine, clear equipment input & hide equipment dropdown
-      if (inputEl.id === 'machineInput') {
-        const eqIn = document.getElementById('equipmentInput');
-        const eqDrop = document.getElementById('equipmentDropdown');
-        if (eqIn) { eqIn.value = ''; }
-        if (eqDrop) { eqDrop.style.display = 'none'; eqDrop.innerHTML = ''; }
+      dropdownEl.innerHTML = "";
+      if (!items.length) {
+        dropdownEl.style.display = "none";
+        return;
       }
-    };
-    dropdownEl.appendChild(div);
-  });
-  dropdownEl.style.display = "block";
-}
+      items.forEach(item => {
+        let div = document.createElement("div");
+        div.textContent = item;
+        div.onclick = () => {
+          inputEl.value = item;
+          dropdownEl.style.display = "none";
 
+          // If user picked a machine, clear equipment input & hide equipment dropdown & hide assembly
+          if (inputEl.id === 'machineInput') {
+            const eqIn = document.getElementById('equipmentInput');
+            const eqDrop = document.getElementById('equipmentDropdown');
+            if (eqIn) { eqIn.value = ''; }
+            if (eqDrop) { eqDrop.style.display = 'none'; eqDrop.innerHTML = ''; }
+            // hide assembly box immediately when machine changes
+            const ab = document.getElementById('assemblyBox');
+            if (ab) ab.style.display = 'none';
+          }
 
-    // Machine input suggestions - change with machine handlers 
-const machineInput = document.getElementById("machineInput");
-const machineDropdown = document.getElementById("machineDropdown");
+          // If user picked an equipment, immediately update assembly info
+          if (inputEl.id === 'equipmentInput') {
+            // call the function that displays assembly (defined later)
+            // using setTimeout 0 to ensure input value is set before lookup (defensive)
+            setTimeout(showAssemblyInfo, 0);
+          }
+        };
+        dropdownEl.appendChild(div);
+      });
+      dropdownEl.style.display = "block";
+    }
 
-machineInput.addEventListener("click", () => {
-  const machines = [...new Set(data.map(r => r["MACHINE NAME"]))].filter(Boolean);
-  showDropdown(machineInput, machineDropdown, machines);
-  
-});
+    // Machine input suggestions
+    const machineInput = document.getElementById("machineInput");
+    const machineDropdown = document.getElementById("machineDropdown");
 
-machineInput.addEventListener("input", () => {
-  const val = machineInput.value.trim().toLowerCase();
-  const machinesAll = [...new Set(data.map(r => r["MACHINE NAME"]))].filter(Boolean);
-  if (!val) {
-    // show full list when input cleared
-    showDropdown(machineInput, machineDropdown, machinesAll);
-    return;
-  }
-  const machines = machinesAll.filter(m => m.toLowerCase().includes(val));
-  showDropdown(machineInput, machineDropdown, machines);
-});
+    machineInput.addEventListener("click", () => {
+      const machines = [...new Set(data.map(r => r["MACHINE NAME"]))].filter(Boolean);
+      showDropdown(machineInput, machineDropdown, machines);
+    });
 
-// Equipment input suggestions - change with Equipment handlers
-const equipmentInput = document.getElementById("equipmentInput");
-const equipmentDropdown = document.getElementById("equipmentDropdown");
+    machineInput.addEventListener("input", () => {
+      const val = machineInput.value.trim().toLowerCase();
+      const machinesAll = [...new Set(data.map(r => r["MACHINE NAME"]))].filter(Boolean);
+      if (!val) {
+        showDropdown(machineInput, machineDropdown, machinesAll);
+        return;
+      }
+      const machines = machinesAll.filter(m => m.toLowerCase().includes(val));
+      showDropdown(machineInput, machineDropdown, machines);
+    });
 
-equipmentInput.addEventListener("click", () => {
-  const machineVal = machineInput.value.trim().toLowerCase();
-  if (!machineVal) {
-    equipmentDropdown.style.display = "none";
-    return;
-  }
-  const equipmentsAll = [...new Set(
-    data
-      .filter(r => r["MACHINE NAME"] && r["MACHINE NAME"].toLowerCase().includes(machineVal))
-      .map(r => r["EQUIPMENT NAME"])
-  )].filter(Boolean);
-  showDropdown(equipmentInput, equipmentDropdown, equipmentsAll);
-});
+    // Equipment input suggestions
+    const equipmentInput = document.getElementById("equipmentInput");
+    const equipmentDropdown = document.getElementById("equipmentDropdown");
 
-equipmentInput.addEventListener("input", () => {
-  const machineVal = machineInput.value.trim().toLowerCase();
-  if (!machineVal) {
-    equipmentDropdown.style.display = "none";
-    return;
-  }
-  const val = equipmentInput.value.trim().toLowerCase();
-  const equipmentsAll = [...new Set(
-    data
-      .filter(r => r["MACHINE NAME"] && r["MACHINE NAME"].toLowerCase().includes(machineVal))
-      .map(r => r["EQUIPMENT NAME"])
-  )].filter(Boolean);
-  if (!val) {
-    // show full equipment list for the selected machine when input cleared
-    showDropdown(equipmentInput, equipmentDropdown, equipmentsAll);
-    return;
-  }
-  const equipments = equipmentsAll.filter(eq => eq.toLowerCase().includes(val));
-  showDropdown(equipmentInput, equipmentDropdown, equipments);
-});
+    equipmentInput.addEventListener("click", () => {
+      const machineVal = machineInput.value.trim().toLowerCase();
+      if (!machineVal) {
+        equipmentDropdown.style.display = "none";
+        return;
+      }
+      const equipmentsAll = [...new Set(
+        data
+          .filter(r => r["MACHINE NAME"] && r["MACHINE NAME"].toLowerCase().includes(machineVal))
+          .map(r => r["EQUIPMENT NAME"])
+      )].filter(Boolean);
+      showDropdown(equipmentInput, equipmentDropdown, equipmentsAll);
+    });
 
-// Close dropdowns when clicking outside inputs or dropdowns
-document.addEventListener("click", (e) => {
-  const target = e.target;
-  // if click outside machine input and its dropdown -> hide
-  if (!target.closest('#machineInput') && !target.closest('#machineDropdown')) {
-    document.getElementById('machineDropdown').style.display = 'none';
-  }
-  // if click outside equipment input and its dropdown -> hide
-  if (!target.closest('#equipmentInput') && !target.closest('#equipmentDropdown')) {
-    document.getElementById('equipmentDropdown').style.display = 'none';
-  }
-});
+    equipmentInput.addEventListener("input", () => {
+      const machineVal = machineInput.value.trim().toLowerCase();
+      if (!machineVal) {
+        equipmentDropdown.style.display = "none";
+        // also hide assembly if machine not selected
+        const ab = document.getElementById('assemblyBox');
+        if (ab) ab.style.display = 'none';
+        return;
+      }
+      const val = equipmentInput.value.trim().toLowerCase();
+      const equipmentsAll = [...new Set(
+        data
+          .filter(r => r["MACHINE NAME"] && r["MACHINE NAME"].toLowerCase().includes(machineVal))
+          .map(r => r["EQUIPMENT NAME"])
+      )].filter(Boolean);
+      if (!val) {
+        showDropdown(equipmentInput, equipmentDropdown, equipmentsAll);
+      } else {
+        const equipments = equipmentsAll.filter(eq => eq.toLowerCase().includes(val));
+        showDropdown(equipmentInput, equipmentDropdown, equipments);
+      }
 
+      // IMMEDIATE: update assembly info as user types (will hide if empty)
+      showAssemblyInfo();
+    });
 
+    // Close dropdowns when clicking outside inputs or dropdowns
+    document.addEventListener("click", (e) => {
+      const target = e.target;
+      if (!target.closest('#machineInput') && !target.closest('#machineDropdown')) {
+        document.getElementById('machineDropdown').style.display = 'none';
+      }
+      if (!target.closest('#equipmentInput') && !target.closest('#equipmentDropdown')) {
+        document.getElementById('equipmentDropdown').style.display = 'none';
+      }
+    });
 
-    // Search item code
+    // Assembly elements
+    const assemblyBox = document.getElementById("assemblyBox");
+    const assemblyText = document.getElementById("assemblyText");
+
+    // Show/hide assembly info **immediately** based on equipment input (and machine context)
+    function showAssemblyInfo() {
+      const equipmentRaw = equipmentInput.value.trim();
+      // If equipment is empty - hide the assembly box (requirement)
+      if (!equipmentRaw) {
+        assemblyBox.style.display = "none";
+        return;
+      }
+
+      // Require a machine selection/context — otherwise don't show assembly
+      const machineRaw = machineInput.value.trim();
+      if (!machineRaw) {
+        assemblyBox.style.display = "none";
+        return;
+      }
+
+      const equipmentLower = equipmentRaw.toLowerCase();
+      const machineLower = machineRaw.toLowerCase();
+
+      // Find a row where MACHINE NAME matches the selected machine context
+      // and EQUIPMENT NAME exactly matches the equipment input (case-insensitive).
+      // Exact match prevents picking the wrong assembly when similar names exist.
+      const match = data.find(r =>
+        r["MACHINE NAME"] && r["MACHINE NAME"].toLowerCase().includes(machineLower) &&
+        r["EQUIPMENT NAME"] && r["EQUIPMENT NAME"].toLowerCase() === equipmentLower
+      );
+
+      // If the column "ASSEMBLY" exists and has a value, show it; otherwise show "Assembly not found"
+      if (match && match["ASSEMBLY"]) {
+        assemblyText.textContent = String(match["ASSEMBLY"]);
+      } else {
+        assemblyText.textContent = "Assembly not found";
+      }
+
+      assemblyBox.style.display = "block";
+    }
+
+    // Also keep change/blur handlers (safe) — but primary trigger is input
+    equipmentInput.addEventListener("change", showAssemblyInfo);
+    equipmentInput.addEventListener("blur", showAssemblyInfo);
+
+    // Find item code (unchanged logic except defensive checks)
     function findItemCode() {
-  const machine = document.getElementById('machineInput').value.toLowerCase();
-  const equipment = document.getElementById('equipmentInput').value.toLowerCase();
-  let resultDiv = document.getElementById('result');
+      const machine = document.getElementById('machineInput').value.trim().toLowerCase();
+      const equipment = document.getElementById('equipmentInput').value.trim().toLowerCase();
+      let resultDiv = document.getElementById('result');
 
-  if (!data.length) {
-    resultDiv.innerHTML = "⚠️ Excel file not loaded from backend.";
-    return;
-  }
+      if (!data.length) {
+        resultDiv.innerHTML = "⚠️ Excel file not loaded.";
+        return;
+      }
 
-  if (!machine.trim()) {
-    resultDiv.innerHTML = "⚠️ Please enter/select a machine name.";
-    return;
-  }
+      if (!machine) {
+        resultDiv.innerHTML = "⚠️ Please enter/select a machine name.";
+        return;
+      }
 
-  if (!equipment.trim()) {
-    resultDiv.innerHTML = "⚠️ Please enter/select an equipment name.";
-    return;
-  }
+      if (!equipment) {
+        resultDiv.innerHTML = "⚠️ Please enter/select an equipment name.";
+        return;
+      }
 
-  let match = data.find(row =>
-    row["MACHINE NAME"].toLowerCase().includes(machine) &&
-    row["EQUIPMENT NAME"].toLowerCase().includes(equipment)
-  );
+      let match = data.find(row =>
+        row["MACHINE NAME"] && row["MACHINE NAME"].toLowerCase().includes(machine) &&
+        row["EQUIPMENT NAME"] && row["EQUIPMENT NAME"].toLowerCase().includes(equipment)
+      );
 
-  if (match) {
-    resultDiv.innerHTML = `✅ Item Code: ${match["ITEM CODE"]}`;
-  } else {
-    resultDiv.innerHTML = "❌ No match found. Try different keywords.";
-  }
-}
-
+      if (match) {
+        resultDiv.innerHTML = `✅ Item Code: ${match["ITEM CODE"]}`;
+      } else {
+        resultDiv.innerHTML = "❌ No match found. Try different keywords.";
+      }
+    }
   </script>
 </body>
 </html>
